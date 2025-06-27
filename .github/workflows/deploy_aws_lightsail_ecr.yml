@@ -121,6 +121,7 @@ jobs:
             --service-name "$SERVICE_NAME" \
             --query "containerServices[0]" \
             --output json > whole-service.json
+          cat whole-service.json
       
       - name: Update image URI in container config
         run: |
