@@ -1,4 +1,4 @@
-name: Deploy to Lightsail Container Service
+name: Deploy to Lightsail with ECR
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
 
 on:
