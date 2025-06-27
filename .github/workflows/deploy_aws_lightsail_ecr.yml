@@ -30,7 +30,7 @@ jobs:
       APP_NAME: awesome
       LCS_CONTAINER: awesome-${{ inputs.deployment_target }}
       LCS_SERVICE: awesome-wp
-      ECR_REPO: dev1/awesome
+      ECR_REPO: ${{ vars.REPO_URL }}
       AWS_REGION: ap-southeast-1
       
     steps:
