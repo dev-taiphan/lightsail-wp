@@ -1,0 +1,37 @@
+server {
+    listen 80;
+    server_name ${FQDN};
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${FQDN};
+
+    root ${DOCUMENTROOT};
+    index index.php;
+
+    ssl_certificate ${SSL_CERT};
+    ssl_certificate_key ${SSL_KEY};
+
+    location / {
+        try_files $uri $uri/ /index.php?$args;
+    }
+
+    location ~ \.php$ {
+        include /etc/nginx/conf.d/fastcgi.inc;
+    }
+
+    location ~* \.(?:css|js|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|otf|eot|ttf|ttc|map|mp4|webm|ogg|ogv|txt)$ {
+        expires 6M;
+        access_log off;
+        add_header Cache-Control "public";
+        try_files $uri =404;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}

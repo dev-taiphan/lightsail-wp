@@ -1,0 +1,8 @@
+/vendor
+/node_modules
+web/app/themes/awesome/node_modules
+npm_packages
+.git
+.dockerignore
+Dockerfile
+.env

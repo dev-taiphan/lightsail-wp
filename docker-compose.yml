@@ -1,0 +1,71 @@
+services:
+  php:
+    container_name: ${APP_NAME}_php
+    build:
+      context: ./docker/php
+    volumes:
+      - .:/var/www/html
+      - database:/var/run/mysqld
+    networks:
+      - service_network
+
+  nginx:
+    container_name: ${APP_NAME}_nginx
+    build:
+      context: ./docker/nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      FQDN: ${FQDN}
+      DOCUMENTROOT: /var/www/html/web
+      SSL_CERT: /etc/nginx/default.crt
+      SSL_KEY: /etc/nginx/default.key
+    volumes:
+      - .:/var/www/html
+    networks:
+      - service_network
+
+  db:
+    container_name: ${APP_NAME}_db
+    image: mysql:8.4.4
+    user: 999:999
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+    volumes:
+      - database:/var/lib/mysql
+      - database:/var/run/mysqld
+      - ./docker/mysql/my.cnf:/etc/my.cnf
+    ports:
+      - 13306:3306
+    networks:
+      - service_network
+
+  node:
+    container_name: ${APP_NAME}_node
+    image: node:23
+    user: 1000:1000
+    tty: true
+    working_dir: /var/www/html/web/app/themes/awesome
+    volumes:
+      - .:/var/www/html
+    networks:
+      - service_network
+
+  mailpit: 
+    container_name: ${APP_NAME}_mailpit
+    image: axllent/mailpit:latest
+    ports:
+      - 8025:8025
+    networks:
+      - service_network
+
+networks:
+  service_network:
+    name: ${APP_NAME}_network
+
+volumes:
+  database:
