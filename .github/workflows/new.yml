@@ -1,0 +1,129 @@
+name: Deploy to Lightsail Container Service
+run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: 'Deployment target'
+        required: true
+        default: 'dev1'
+        type: choice
+        options:
+          - dev1
+          - prd
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    timeout-minutes: 15
+    environment:
+      name: ${{ inputs.deployment_target }}
+    env:
+      APP_NAME: awesome
+      LCS_CONTAINER: awesome-${{ inputs.deployment_target }}
+      LCS_SERVICE: awesome-wp
+      ECR_REPO: dev1/awesome
+      AWS_REGION: ap-southeast-1
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Create valid tag name
+        id: create-tag-name
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME//\//-}"    
+          TAG_NAME="${TAG_NAME//_/-}"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+
+      - name: Set Environment Variables
+        run: |
+          IMAGE_TAG="${{ steps.create-tag-name.outputs.tag_name }}-${{ github.run_number }}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "ENVIRONMENT=$(echo ${{ inputs.deployment_target }} | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
+      
+      - name: Install Lightsail CLI Plugin
+        run: |
+          sudo curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
+          sudo chmod +x /usr/local/bin/lightsailctl
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: true
+      
+      - name: Retrieve secrets from SSM Parameter Store
+        id: get-ssm-secrets
+        run: |
+          # Retrieve secrets from SSM Parameter Store
+          BASIC_AUTH_USER=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_AUTH_USER" --with-decryption --query "Parameter.Value" --output text)
+          BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_AUTH_PASSWORD" --with-decryption --query "Parameter.Value" --output text)
+          DB_USER=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_USER" --with-decryption --query "Parameter.Value" --output text)
+          DB_PASS=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_PASS" --with-decryption --query "Parameter.Value" --output text)
+          DB_NAME=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_NAME" --with-decryption --query "Parameter.Value" --output text)
+          DB_HOST=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_HOST" --with-decryption --query "Parameter.Value" --output text)
+        
+          # Generate htpasswd-style hash
+          AUTH_LINE=$(htpasswd -nb $BASIC_AUTH_USER $BASIC_AUTH_PASSWORD)
+
+          # Extract the hashed password only (everything after the first colon)
+          BASIC_AUTH_HASH="${AUTH_LINE#*:}"
+
+          # Mask sensitive information in GitHub Actions logs
+          echo "::add-mask::$BASIC_AUTH_USER"
+          echo "::add-mask::$BASIC_AUTH_PASSWORD"
+          echo "::add-mask::$BASIC_AUTH_HASH"
+          echo "::add-mask::$DB_PASS"
+          echo "::add-mask::$DB_USER"
+          echo "::add-mask::$DB_HOST"
+
+          # Export secrets to GitHub environment variables
+          echo "BASIC_AUTH_USER=$BASIC_AUTH_USER" >> $GITHUB_ENV
+          echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
+          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
+          echo "DB_PASS=$DB_PASS" >> $GITHUB_ENV
+          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
+          echo "DB_HOST=$DB_HOST" >> $GITHUB_ENV
+
+      - name: Get current container config from Lightsail
+        run: |
+          SERVICE_NAME="${{ env.APP_NAME }}-${{ inputs.deployment_target }}"
+          aws lightsail get-container-services \
+            --service-name "$SERVICE_NAME" \
+            --query "containerServices[0]" \
+            --output json > whole-service.json
+          cat whole-service.json
+      
+      - name: Update image URI in container config
+        run: |
+          IMAGE_URI="${{ env.IMAGE_URI }}"
+          CONTAINER_NAME="${{ env.LCS_SERVICE }}"
+          echo "Updating container $CONTAINER_NAME with new image: $IMAGE_URI"
+          
+          # Replace image URI for the specific container
+          jq --arg name "$LCS_SERVICE" \
+            --arg image "$IMAGE_URI" \
+            '.containerService.currentDeployment.containers[$name].image = $image' whole-service.json \
+            > payload.json
+          
+      - name: Deploy to Lightsail with updated image
+        run: |
+          aws lightsail update-container-service \
+            --cli-input-json file://payload.json
