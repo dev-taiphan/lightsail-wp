@@ -136,4 +136,4 @@ jobs:
         run: |
           aws lightsail update-container-service \
             --service-name ${{ env.APP_NAME }}-${{ inputs.deployment_target }} \
-            --containers file://updated-containers.json
+            --cli-input-json file://updated-containers.json
