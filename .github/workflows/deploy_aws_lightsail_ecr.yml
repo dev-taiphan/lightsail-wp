@@ -1,4 +1,4 @@
-name: Deploy to Lightsail with ECR
+name: Deploy to Lightsail Container Service
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
 
 on:
@@ -114,35 +114,26 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - name: Create container.json
+      - name: Get current container config from Lightsail
         run: |
-          echo "Using IMAGE_URI: $IMAGE_URI"
-          cat <<EOF > container.json
-          {
-            "containers": {
-              "${{ env.LCS_SERVICE }}": {
-                "image": "$IMAGE_URI",
-                "ports": {
-                  "80": "HTTP"
-                },
-                "environment": {
-                  "DB_PASS": "${{ env.DB_PASS }}",
-                  "DB_USER": "${{ env.DB_USER }}",
-                  "DB_NAME": "${{ env.DB_NAME }}",
-                  "DB_HOST": "${{ env.DB_HOST }}",
-                  "DOMAIN": "${{ vars.DOMAIN }}"
-                }
-              }
-            },
-            "publicEndpoint": {
-              "containerName": "${{ env.LCS_SERVICE }}",
-              "containerPort": 80
-            }
-          }
-          EOF
+          SERVICE_NAME="${{ env.APP_NAME }}-${{ inputs.deployment_target }}"
+          aws lightsail get-container-services \
+            --service-name "$SERVICE_NAME" \
+            --query "containerServices[0].containers" \
+            --output json > containers.json
+      
+      - name: Update image URI in container config
+        run: |
+          IMAGE_URI="${{ env.IMAGE_URI }}"
+          CONTAINER_NAME="${{ env.LCS_SERVICE }}"
+          echo "Updating container $CONTAINER_NAME with new image: $IMAGE_URI"
           
-      - name: Deploy to Lightsail Container Service
+          # Replace image URI for the specific container
+          jq --arg image "$IMAGE_URI" --arg name "$CONTAINER_NAME" \
+            '.[$name].image = $image' containers.json > updated-containers.json
+          
+      - name: Deploy to Lightsail with updated image
         run: |
-          aws lightsail create-container-service-deployment \
+          aws lightsail update-container-service \
             --service-name ${{ env.APP_NAME }}-${{ inputs.deployment_target }} \
-            --cli-input-json file://container.json
+            --containers file://updated-containers.json
