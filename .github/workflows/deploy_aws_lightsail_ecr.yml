@@ -137,5 +137,4 @@ jobs:
       - name: Deploy to Lightsail with updated image
         run: |
           aws lightsail update-container-service \
-            --service-name ${{ env.APP_NAME }}-${{ inputs.deployment_target }} \
             --cli-input-json file://payload.json
