@@ -30,7 +30,7 @@ jobs:
       APP_NAME: awesome
       LCS_CONTAINER: awesome-${{ inputs.deployment_target }}
       LCS_SERVICE: awesome-wp
-      AWS_REGION: ap-northeast-1
+      AWS_REGION: ap-southeast-1
       
     steps:
       - name: Checkout
