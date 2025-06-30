@@ -1,6 +1,3 @@
-access_log /dev/stdout;
-error_log /dev/stderr;
-
 limit_req_zone $binary_remote_addr zone=one:10m rate=5r/s;
 
 server {
