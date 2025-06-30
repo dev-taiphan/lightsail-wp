@@ -30,8 +30,7 @@ jobs:
       APP_NAME: awesome
       LCS_CONTAINER: awesome-${{ inputs.deployment_target }}
       LCS_SERVICE: awesome-wp
-      ECR_REPO: ${{ vars.REPO_URL }}
-      AWS_REGION: ap-southeast-1
+      AWS_REGION: ap-northeast-1
       
     steps:
       - name: Checkout
@@ -104,7 +103,7 @@ jobs:
           
       - name: Build Docker Image
         run: |
-          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO }}:${{ env.IMAGE_TAG }}"
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_CONTAINER }}:${{ env.IMAGE_TAG }}"
           docker build \
             --build-arg ENV=${{ inputs.deployment_target }} \
             --build-arg FQDN=${{ vars.DOMAIN }} \
@@ -144,5 +143,5 @@ jobs:
       - name: Deploy to Lightsail Container Service
         run: |
           aws lightsail create-container-service-deployment \
-            --service-name ${{ env.APP_NAME }}-${{ inputs.deployment_target }} \
+            --service-name ${{ env.LCS_CONTAINER }} \
             --cli-input-json file://container.json
