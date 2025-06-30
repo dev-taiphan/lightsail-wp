@@ -75,7 +75,7 @@ jobs:
           BASIC_AUTH_USER=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_AUTH_USER" --with-decryption --query "Parameter.Value" --output text)
           BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_AUTH_PASSWORD" --with-decryption --query "Parameter.Value" --output text)
           DB_USER=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_USER" --with-decryption --query "Parameter.Value" --output text)
-          DB_PASS=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_PASS" --with-decryption --query "Parameter.Value" --output text)
+          DB_PASS=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_PASSWORD" --with-decryption --query "Parameter.Value" --output text)
           DB_NAME=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_NAME" --with-decryption --query "Parameter.Value" --output text)
           DB_HOST=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_HOST" --with-decryption --query "Parameter.Value" --output text)
         
