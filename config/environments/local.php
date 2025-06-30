@@ -21,10 +21,6 @@ ini_set('display_errors', '1');
 // Enable plugin and theme updates and installation from the admin
 Config::define('DISALLOW_FILE_MODS', false);
 
-// AWS S3
-Config::define('AWS_S3_URL', 'https://dev1.brandrevalue.com/assets/wp-content/themes/bring');
-Config::define('ASSETS_URL', 'https://dev1.brandrevalue.com/assets/wp-content/themes/bring');
-
 // Force default mailer for WP Mail Plugin
 Config::define('WPMS_MAILER', env('WPMS_MAILER') ?? 'smtp');
 // Define the SMTP host. If the environment variable WPMS_SMTP_HOST is set, it will be used; otherwise, it defaults to 'localhost'.

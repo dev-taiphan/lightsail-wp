@@ -165,7 +165,7 @@ Config::define( 'WPMS_SMTP_AUTOTLS', env('WPMS_SMTP_AUTOTLS'));
 Config::define( 'WPMS_MAILER', env('WPMS_MAILER'));
 
 // AWS img URL
-Config::define('AWS_S3_URL', env('AWS_S3_URL'));
+Config::define('ASSETS_URL', env('ASSETS_URL'));
 
 // Monolog
 Config::define('LOG_LEVEL', env('LOG_LEVEL'));

@@ -17,10 +17,6 @@ use Roots\WPConfig\Config;
 
 Config::define('DISALLOW_INDEXING', true);
 
-// AWS S3
-Config::define('AWS_S3_URL', 'https://dev1.brandrevalue.com/assets/wp-content/themes/bring');
-Config::define('ASSETS_URL', 'https://dev1.brandrevalue.com/assets/wp-content/themes/bring');
-
 // WP MAIL SMTP
 Config::define('WPMS_MAIL_FROM', 'info@brandrevalue.jp');
 Config::define('WPMS_MAIL_FROM_FORCE', true);
