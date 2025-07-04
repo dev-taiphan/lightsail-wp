@@ -1,3 +1,28 @@
+map $http_user_agent $skip_log_ua {
+    default 0;
+    "~*ELB-HealthChecker" 1;
+}
+
+map $remote_addr $skip_log_ip {
+    default 0;
+    "127.0.0.1" 1;
+    "::1" 1; 
+}
+
+map "$skip_log_ua$skip_log_ip" $skip_log {
+    default 1;
+    "10" 0;  # UA match, IP no match
+    "01" 0;  # IP match, UA no match
+    "11" 0;  # Both match
+}
+
+log_format awesome_logs '$request_time $http_x_forwarded_for $remote_addr - $remote_user [$time_local] '
+                        '"$request" $status $body_bytes_sent '
+                        '"$http_referer" "$http_user_agent" "$http_x_forwarded_for"';
+
+access_log /dev/stdout awesome_logs if=$skip_log;
+error_log /dev/stderr;
+
 limit_req_zone $binary_remote_addr zone=one:10m rate=5r/s;
 
 server {
