@@ -28,8 +28,8 @@ jobs:
       name: ${{ inputs.deployment_target }}
     env:
       APP_NAME: awesome
-      LCS_CONTAINER: awesome-${{ inputs.deployment_target }}
-      LCS_SERVICE: awesome-wp
+      LCS_SERVICE: awesome-${{ inputs.deployment_target }}
+      LCS_CONTAINER: awesome-wp
       AWS_REGION: ap-southeast-1
       
     steps:
@@ -71,39 +71,38 @@ jobs:
       - name: Retrieve secrets from SSM Parameter Store
         id: get-ssm-secrets
         run: |
-          # Retrieve secrets from SSM Parameter Store
-          BASIC_AUTH_USER=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_AUTH_USER" --with-decryption --query "Parameter.Value" --output text)
-          BASIC_AUTH_PASSWORD=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_AUTH_PASSWORD" --with-decryption --query "Parameter.Value" --output text)
-          DB_USER=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_USER" --with-decryption --query "Parameter.Value" --output text)
-          DB_PASS=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_PASSWORD" --with-decryption --query "Parameter.Value" --output text)
-          DB_NAME=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_NAME" --with-decryption --query "Parameter.Value" --output text)
-          DB_HOST=$(aws ssm get-parameter --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/DB_HOST" --with-decryption --query "Parameter.Value" --output text)
-        
-          # Generate htpasswd-style hash
-          AUTH_LINE=$(htpasswd -nb $BASIC_AUTH_USER $BASIC_AUTH_PASSWORD)
+          # Fetch all parameters under the path
+          PARAMS=$(aws ssm get-parameters-by-path \
+            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/" \
+            --with-decryption \
+            --query "Parameters[].{Key:Name,Val:Value}" \
+            --output text)
+          
+          while read -r full_key value; do
+            key=$(basename "$full_key")
 
-          # Extract the hashed password only (everything after the first colon)
+            # Mask sensitive values
+            if [[ "$key" =~ PASSWORD|PASS|KEY|USER|HOST|AUTH|SALT ]]; then
+              echo "::add-mask::$value"
+            fi
+
+            # Export to environment
+            echo "$key=$value" >> $GITHUB_ENV
+
+          done <<< "$PARAMS"
+
+      - name: Generate htpasswd hash 
+        id: htpasswd-hash
+        run: |
+          AUTH_LINE=$(htpasswd -nb "$BASIC_AUTH_USER" "$BASIC_AUTH_PASSWORD")
           BASIC_AUTH_HASH="${AUTH_LINE#*:}"
 
-          # Mask sensitive information in GitHub Actions logs
-          echo "::add-mask::$BASIC_AUTH_USER"
-          echo "::add-mask::$BASIC_AUTH_PASSWORD"
           echo "::add-mask::$BASIC_AUTH_HASH"
-          echo "::add-mask::$DB_PASS"
-          echo "::add-mask::$DB_USER"
-          echo "::add-mask::$DB_HOST"
-
-          # Export secrets to GitHub environment variables
-          echo "BASIC_AUTH_USER=$BASIC_AUTH_USER" >> $GITHUB_ENV
           echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
-          echo "DB_USER=$DB_USER" >> $GITHUB_ENV
-          echo "DB_PASS=$DB_PASS" >> $GITHUB_ENV
-          echo "DB_NAME=$DB_NAME" >> $GITHUB_ENV
-          echo "DB_HOST=$DB_HOST" >> $GITHUB_ENV
           
       - name: Build Docker Image
         run: |
-          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_CONTAINER }}:${{ env.IMAGE_TAG }}"
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_SERVICE }}:${{ env.IMAGE_TAG }}"
           docker build \
             --build-arg ENV=${{ inputs.deployment_target }} \
             --build-arg FQDN=${{ vars.DOMAIN }} \
@@ -119,22 +118,40 @@ jobs:
           cat <<EOF > container.json
           {
             "containers": {
-              "${{ env.LCS_SERVICE }}": {
+              "${{ env.LCS_CONTAINER }}": {
                 "image": "$IMAGE_URI",
                 "ports": {
                   "80": "HTTP"
                 },
                 "environment": {
-                  "DB_PASS": "${{ env.DB_PASS }}",
+                  "DB_PASS": "${{ env.DB_PASSWORD }}",
                   "DB_USER": "${{ env.DB_USER }}",
                   "DB_NAME": "${{ env.DB_NAME }}",
                   "DB_HOST": "${{ env.DB_HOST }}",
+                  "AUTH_KEY": "${{ env.AUTH_KEY }}",
+                  "AUTH_SALT": "${{ env.AUTH_SALT }}",
+                  "LOGGED_IN_KEY": "${{ env.LOGGED_IN_KEY }}",
+                  "LOGGED_IN_SALT": "${{ env.LOGGED_IN_SALT }}",
+                  "NONCE_KEY": "${{ env.NONCE_KEY }}",
+                  "NONCE_SALT": "${{ env.NONCE_SALT }}",
+                  "SECURE_AUTH_KEY": "${{ env.SECURE_AUTH_KEY }}",
+                  "SECURE_AUTH_SALT": "${{ env.SECURE_AUTH_SALT }}",
+                  "WPMS_SMTP_HOST": "${{ env.WPMS_SMTP_HOST }}",
+                  "WPMS_SMTP_PASS": "${{ env.WPMS_SMTP_PASS }}",
+                  "WPMS_SMTP_PORT": "${{ env.WPMS_SMTP_PORT }}",
+                  "WPMS_SMTP_USER": "${{ env.WPMS_SMTP_USER }}",
+                  "WP_ENV": "${{ env.WP_ENV }}",
+                  "WP_HOME": "${{ env.WP_HOME }}",
+                  "WP_SITEURL": "${{ env.WP_SITEURL }}",
+                  "RECAPTCHA_SECRET_KEY": "${{ env.RECAPTCHA_SECRET_KEY }}",
+                  "RECAPTCHA_SITE_KEY": "${{ env.RECAPTCHA_SITE_KEY }}",
+                  "ASSETS_URL": "${{ env.ASSETS_URL }}",
                   "DOMAIN": "${{ vars.DOMAIN }}"
                 }
               }
             },
             "publicEndpoint": {
-              "containerName": "${{ env.LCS_SERVICE }}",
+              "containerName": "${{ env.LCS_CONTAINER }}",
               "containerPort": 80
             }
           }
@@ -143,5 +160,6 @@ jobs:
       - name: Deploy to Lightsail Container Service
         run: |
           aws lightsail create-container-service-deployment \
-            --service-name ${{ env.LCS_CONTAINER }} \
+            --service-name ${{ env.LCS_SERVICE }} \
             --cli-input-json file://container.json
+
