@@ -17,12 +17,6 @@ const sass = gulpSass(sassCompiler);
 
 // ENV variables
 const assetsURL = process.env.ASSETS_URL || '';
-let wpHome = process.env.WP_HOME || '';
-
-const parsedUrl = new URL(wpHome);
-if (parsedUrl.pathname !== '/' && !parsedUrl.pathname.endsWith('/')) {
-  wpHome += '/';
-}
 
 // Paths
 const paths = {
