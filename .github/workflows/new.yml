@@ -57,26 +57,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Retrieve secrets from SSM Parameter Store
-        id: get-ssm-secrets
-        run: |
-          PARAMS=$(aws ssm get-parameters-by-path \
-            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/" \
-            --with-decryption \
-            --query "Parameters[].{Key:Name,Val:Value}" \
-            --output text)
-          
-          while read -r full_key value; do
-            key=$(basename "$full_key")
-
-            # Mask sensitive values
-            if [[ "$key" =~ PASSWORD|PASS|KEY|USER|HOST|AUTH|SALT ]]; then
-              echo "::add-mask::$value"
-            fi
-
-            # Export to environment
-            echo "$key=$value" >> "$GITHUB_ENV"
-          done <<< "$PARAMS"
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
 
       - name: Terraform Init
         working-directory: lightsail/lcs
