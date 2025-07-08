@@ -20,7 +20,7 @@ locals {
   secrets_map = {
     for key, param in data.aws_ssm_parameter.each_param :
     basename(key) => param.value
-    if !(basename(key) in local.skip_keys)
+    if !(contains(local.skip_keys, basename(key)))
   }
 }
 
