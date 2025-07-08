@@ -39,4 +39,5 @@ resource "aws_ssm_parameter" "container_definition" {
   name  = "/${var.app_name}/${var.env}/CONTAINER_DEFINITION"
   type  = "String"
   value = local.container_json
+  override = true
 }
