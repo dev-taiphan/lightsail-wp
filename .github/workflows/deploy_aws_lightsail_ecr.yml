@@ -74,24 +74,25 @@ jobs:
         run: |
           # Fetch all parameters under the path
           PARAMS=$(aws ssm get-parameters-by-path \
-            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_" \
+            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/" \
             --with-decryption \
             --query "Parameters[].{Key:Name,Val:Value}" \
             --output text)
           
           while read -r full_key value; do
-            key=$(basename "$full_key")
+            key=$(basename "$full_key")   
+
+            if [[ "$key" == BASIC_* ]]; then       
+              # Export to environment
+              echo "$key=$value" >> $GITHUB_ENV
+            fi
 
             # Mask sensitive values
             if [[ "$key" =~ PASSWORD|PASS|KEY|USER|HOST|AUTH|SALT ]]; then
               echo "::add-mask::$value"
             fi
-
-            # Export to environment
-            echo "$key=$value" >> $GITHUB_ENV
-
           done <<< "$PARAMS"
-
+            
       - name: Generate htpasswd hash 
         id: htpasswd-hash
         run: |
