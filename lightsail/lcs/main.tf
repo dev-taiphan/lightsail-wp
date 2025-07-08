@@ -16,7 +16,7 @@ resource "aws_lightsail_container_service_deployment" "this" {
 
   container {
     name  = var.lcs_container_name
-    image = var.image_uri
+    image = "REPLACE_ECR_IMAGE"
 
     ports = {
       80 = "HTTP"
