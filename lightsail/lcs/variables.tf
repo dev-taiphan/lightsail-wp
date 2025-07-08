@@ -1,5 +1,5 @@
-variable "lcs_service_name" {
-  description = "Name of the Lightsail Container Service"
+variable "app_name" {
+  description = "Name of the website"
 }
 
 variable "lcs_container_name" {
