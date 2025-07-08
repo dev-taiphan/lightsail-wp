@@ -17,22 +17,26 @@ locals {
   }
 }
 
-resource "aws_lightsail_container_service_deployment" "this" {
-  service_name = var.lcs_service_name
-
-  container {
-    name  = var.lcs_container_name
-    image = "REPLACE_ECR_IMAGE"
-
-    ports = {
-      80 = "HTTP"
+locals {
+  container_json = jsonencode({
+    containers = {
+      (var.lcs_container_name) = {
+        image = var.image_uri
+        ports = {
+          "80" = "HTTP"
+        }
+        environment = local.secrets_map
+      }
     }
+    publicEndpoint = {
+      containerName = var.lcs_container_name
+      containerPort = 80
+    }
+  })
+}
 
-    environment = local.secrets_map
-  }
-
-  public_endpoint {
-    container_name = var.lcs_container_name
-    container_port = 80
-  }
+resource "aws_ssm_parameter" "container_definition" {
+  name  = "/${var.lcs_service_name}/${var.env}/CONTAINER_DEFINITION"
+  type  = "String"
+  value = local.container_json
 }
