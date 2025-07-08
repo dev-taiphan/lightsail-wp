@@ -21,7 +21,7 @@ locals {
   container_json = jsonencode({
     containers = {
       (var.lcs_container_name) = {
-        image = var.image_uri
+        image = "REPLACE_ECR_IMAGE"
         ports = {
           "80" = "HTTP"
         }
