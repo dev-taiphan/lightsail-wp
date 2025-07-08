@@ -11,9 +11,16 @@ data "aws_ssm_parameter" "each_param" {
 }
 
 locals {
+  skip_keys = [
+    "CONTAINER_DEFINITION",
+    "BASIC_AUTH_USER",
+    "BASIC_AUTH_PASS"
+  ]
+
   secrets_map = {
     for key, param in data.aws_ssm_parameter.each_param :
     basename(key) => param.value
+    if !(basename(key) in local.skip_keys)
   }
 }
 
