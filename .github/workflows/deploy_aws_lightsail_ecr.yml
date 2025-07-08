@@ -102,6 +102,7 @@ jobs:
           echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
           
       - name: Build Docker Image
+        id: build-image
         run: |
           IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_SERVICE }}:${{ env.IMAGE_TAG }}"
           docker build \
@@ -113,50 +114,17 @@ jobs:
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - name: Create container.json
+      - name: Retrieve container definition
         run: |
-          echo "Using IMAGE_URI: $IMAGE_URI"
-          cat <<EOF > container.json
-          {
-            "containers": {
-              "${{ env.LCS_CONTAINER }}": {
-                "image": "$IMAGE_URI",
-                "ports": {
-                  "80": "HTTP"
-                },
-                "environment": {
-                  "DB_PASS": "${{ env.DB_PASSWORD }}",
-                  "DB_USER": "${{ env.DB_USER }}",
-                  "DB_NAME": "${{ env.DB_NAME }}",
-                  "DB_HOST": "${{ env.DB_HOST }}",
-                  "AUTH_KEY": "${{ env.AUTH_KEY }}",
-                  "AUTH_SALT": "${{ env.AUTH_SALT }}",
-                  "LOGGED_IN_KEY": "${{ env.LOGGED_IN_KEY }}",
-                  "LOGGED_IN_SALT": "${{ env.LOGGED_IN_SALT }}",
-                  "NONCE_KEY": "${{ env.NONCE_KEY }}",
-                  "NONCE_SALT": "${{ env.NONCE_SALT }}",
-                  "SECURE_AUTH_KEY": "${{ env.SECURE_AUTH_KEY }}",
-                  "SECURE_AUTH_SALT": "${{ env.SECURE_AUTH_SALT }}",
-                  "WPMS_SMTP_HOST": "${{ env.WPMS_SMTP_HOST }}",
-                  "WPMS_SMTP_PASS": "${{ env.WPMS_SMTP_PASS }}",
-                  "WPMS_SMTP_PORT": "${{ env.WPMS_SMTP_PORT }}",
-                  "WPMS_SMTP_USER": "${{ env.WPMS_SMTP_USER }}",
-                  "WP_ENV": "${{ env.WP_ENV }}",
-                  "WP_HOME": "${{ env.WP_HOME }}",
-                  "WP_SITEURL": "${{ env.WP_SITEURL }}",
-                  "RECAPTCHA_SECRET_KEY": "${{ env.RECAPTCHA_SECRET_KEY }}",
-                  "RECAPTCHA_SITE_KEY": "${{ env.RECAPTCHA_SITE_KEY }}",
-                  "ASSETS_URL": "${{ env.ASSETS_URL }}",
-                  "DOMAIN": "${{ vars.DOMAIN }}"
-                }
-              }
-            },
-            "publicEndpoint": {
-              "containerName": "${{ env.LCS_CONTAINER }}",
-              "containerPort": 80
-            }
-          }
-          EOF
+          aws ssm get-parameter \
+            --name "/${{ env.LCS_SERVICE }}/${{ inputs.deployment_target }}/CONTAINER_DEFINITION" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text > ssm_container.json
+
+      - name: Replace ECR image for container json
+        run: |
+          sed "s|REPLACE_ECR_IMAGE|${{ steps.build-image.outputs.IMAGE_URI }}|g" ssm_container.json > container.json
           
       - name: Deploy to Lightsail Container Service
         run: |
