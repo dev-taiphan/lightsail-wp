@@ -72,7 +72,7 @@ jobs:
           terraform plan \
             -var="lcs_service_name=${{ env.LCS_SERVICE }}" \
             -var="lcs_container_name=${{ env.LCS_CONTAINER }}" \
-            -var="env=${{ env.ENVIRONMENT }}" \
+            -var="env=${{ inputs.deployment_target }}" \
             -out=tfplan
 
       - name: Terraform Apply
