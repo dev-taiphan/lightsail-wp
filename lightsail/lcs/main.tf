@@ -1,13 +1,19 @@
-data "aws_ssm_parameters_by_path" "all_secrets" {
+data "aws_ssm_parameters_by_path" "all" {
   path            = "/${var.lcs_service_name}/${var.env}/"
   recursive       = true
   with_decryption = true
 }
 
+data "aws_ssm_parameter" "each_param" {
+  for_each        = toset(data.aws_ssm_parameters_by_path.all.names)
+  name            = each.value
+  with_decryption = true
+}
+
 locals {
   secrets_map = {
-    for p in data.aws_ssm_parameters_by_path.all_secrets.parameters :
-    basename(p.name) => p.value
+    for key, param in data.aws_ssm_parameter.each_param :
+    basename(key) => param.value
   }
 }
 
