@@ -36,7 +36,7 @@ locals {
 }
 
 resource "aws_ssm_parameter" "container_definition" {
-  name  = "/${var.lcs_service_name}/${var.env}/CONTAINER_DEFINITION"
+  name  = "/${var.app_name}/${var.env}/CONTAINER_DEFINITION"
   type  = "String"
   value = local.container_json
 }
