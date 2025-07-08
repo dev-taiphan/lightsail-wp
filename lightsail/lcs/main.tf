@@ -1,5 +1,5 @@
 data "aws_ssm_parameters_by_path" "all" {
-  path            = "/${var.lcs_service_name}/${var.env}/"
+  path            = "/${var.app_name}/${var.env}/"
   recursive       = true
   with_decryption = true
 }
