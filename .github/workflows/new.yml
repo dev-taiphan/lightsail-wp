@@ -27,8 +27,10 @@ jobs:
       name: ${{ inputs.deployment_target }}
     env:
       APP_NAME: awesome
+      LCS_SERVICE: awesome-${{ inputs.deployment_target }}
+      LCS_CONTAINER: awesome-wp
       AWS_REGION: ap-southeast-1
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -48,8 +50,6 @@ jobs:
           echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           ENVIRONMENT_UPPER=$(echo "${{ inputs.deployment_target }}" | tr '[:lower:]' '[:upper:]')
           echo "ENVIRONMENT=$ENVIRONMENT_UPPER" >> "$GITHUB_ENV"
-          echo "LCS_SERVICE=awesome-${{ inputs.deployment_target }}" >> "$GITHUB_ENV"
-          echo "LCS_CONTAINER=awesome-wp" >> "$GITHUB_ENV"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
