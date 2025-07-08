@@ -7,11 +7,9 @@ on:
       deployment_target:
         description: 'Deployment target'
         required: true
-        default: 'dev1'
+        default: 'demo'
         type: choice
         options:
-          - dev1
-          - prd
           - demo
 
 concurrency:
@@ -51,23 +49,12 @@ jobs:
           IMAGE_TAG="${{ steps.create-tag-name.outputs.tag_name }}-${{ github.run_number }}"
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
           echo "ENVIRONMENT=$(echo ${{ inputs.deployment_target }} | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
-      
-      - name: Install Lightsail CLI Plugin
-        run: |
-          sudo curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
-          sudo chmod +x /usr/local/bin/lightsailctl
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-        with:
-          mask-password: true
       
       - name: Retrieve secrets from SSM Parameter Store
         id: get-ssm-secrets
@@ -92,45 +79,22 @@ jobs:
 
           done <<< "$PARAMS"
 
-      - name: Generate htpasswd hash 
-        id: htpasswd-hash
-        run: |
-          AUTH_LINE=$(htpasswd -nb "$BASIC_AUTH_USER" "$BASIC_AUTH_PASSWORD")
-          BASIC_AUTH_HASH="${AUTH_LINE#*:}"
+      - name: Terraform Init
+        working-directory: lightsail/lcs
+        run: terraform init
 
-          echo "::add-mask::$BASIC_AUTH_HASH"
-          echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
-          
-      - name: Build Docker Image
-        id: build-image
+      - name: Terraform Plan
+        working-directory: lightsail/lcs
         run: |
-          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_SERVICE }}:${{ env.IMAGE_TAG }}"
-          docker build \
-            --build-arg ENV=${{ inputs.deployment_target }} \
-            --build-arg FQDN=${{ vars.DOMAIN }} \
-            --build-arg BASIC_AUTH_USER=$BASIC_AUTH_USER \
-            --build-arg BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD \
-            -t $IMAGE_URI .
-          docker push $IMAGE_URI
-          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
-          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+          terraform plan \
+            -var="env=${{ inputs.env }}" \
+            -out=tfplan
 
-      - name: Retrieve container definition
+      - name: Terraform Apply
+        working-directory: lightsail/lcs
         run: |
-          aws ssm get-parameter \
-            --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/CONTAINER_DEFINITION" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text > ssm_container.json
+          terraform apply -auto-approve tfplan
 
-      - name: Replace ECR image for container json
-        run: |
-          sed "s|REPLACE_ECR_IMAGE|${{ steps.build-image.outputs.image }}|g" ssm_container.json > container.json
-          echo "== Replaced container.json content =="
-          cat container.json
-          
-      - name: Deploy to Lightsail Container Service
-        run: |
-          aws lightsail create-container-service-deployment \
-            --service-name ${{ env.LCS_SERVICE }} \
-            --cli-input-json file://container.json
+      - name: Show Outputs
+        working-directory: lightsail/lcs
+        run: terraform output -json
