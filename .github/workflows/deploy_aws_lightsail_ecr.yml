@@ -117,7 +117,7 @@ jobs:
       - name: Retrieve container definition
         run: |
           aws ssm get-parameter \
-            --name "/${{ env.LCS_SERVICE }}/${{ inputs.deployment_target }}/CONTAINER_DEFINITION" \
+            --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/CONTAINER_DEFINITION" \
             --with-decryption \
             --query "Parameter.Value" \
             --output text > ssm_container.json
