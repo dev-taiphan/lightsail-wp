@@ -113,6 +113,7 @@ jobs:
             -t $IMAGE_URI .
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
 
       - name: Retrieve container definition
         run: |
@@ -124,7 +125,7 @@ jobs:
 
       - name: Replace ECR image for container json
         run: |
-          sed "s|REPLACE_ECR_IMAGE|${{ steps.build-image.outputs.IMAGE_URI }}|g" ssm_container.json > container.json
+          sed "s|REPLACE_ECR_IMAGE|${{ steps.build-image.outputs.image }}|g" ssm_container.json > container.json
           echo "== Replaced container.json content =="
           cat container.json
           
