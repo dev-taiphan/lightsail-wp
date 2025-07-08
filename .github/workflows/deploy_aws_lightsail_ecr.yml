@@ -74,7 +74,7 @@ jobs:
         run: |
           # Fetch all parameters under the path
           PARAMS=$(aws ssm get-parameters-by-path \
-            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/" \
+            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/BASIC_" \
             --with-decryption \
             --query "Parameters[].{Key:Name,Val:Value}" \
             --output text)
