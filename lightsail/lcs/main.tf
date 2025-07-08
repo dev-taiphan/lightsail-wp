@@ -14,7 +14,7 @@ locals {
   skip_keys = [
     "CONTAINER_DEFINITION",
     "BASIC_AUTH_USER",
-    "BASIC_AUTH_PASS"
+    "BASIC_AUTH_PASSWORD"
   ]
 
   secrets_map = {
