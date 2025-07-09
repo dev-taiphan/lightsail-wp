@@ -66,4 +66,4 @@ jobs:
         run: |
           echo "Current working directory: $(pwd)"
           ls -al
-          aws s3 sync app/themes/awesome/assets/build s3://zenlunaris/${{ env.APP_NAME }}/${{ inputs.deployment_target }} --delete
+          aws s3 sync ./web/app/themes/awesome/assets/build s3://zenlunaris/${{ env.APP_NAME }}/${{ inputs.deployment_target }} --delete
