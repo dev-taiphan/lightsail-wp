@@ -9,5 +9,5 @@ function demo1 (){
 
 // Loremda asd
 function demo2 (){
-    console.log('line 1')
+    console.log('line 2')
 }
