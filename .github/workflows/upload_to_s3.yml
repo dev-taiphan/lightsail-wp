@@ -64,4 +64,6 @@ jobs:
 
       - name: Upload to S3
         run: |
+          echo "Current working directory: $(pwd)"
+          ls -al
           aws s3 sync app/themes/awesome/assets/build s3://zenlunaris/${{ env.APP_NAME }}/${{ inputs.deployment_target }} --delete
