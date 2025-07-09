@@ -55,7 +55,11 @@ jobs:
         run: |
           cd web/app/themes/awesome
           npm install
-          npm run compile:assets:${{ inputs.deployment_target }}
+          if [ "${{ inputs.deployment_target }}" = "prd" ]; then
+            npm run compile:assets:prd
+          else
+            npm run compile:assets:dev
+          fi
 
       - name: Upload to S3
         run: |
