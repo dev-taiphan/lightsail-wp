@@ -25,19 +25,28 @@ const assetsURL = process.env.ASSETS_URL || '';
 const paths = {
   scss: './assets/scss/**/*.scss',
   jsOrigin: './assets/js_origin/**/*.js',
-  jsDest: './assets/js',
-  cssDest: './assets/css',
   build: './assets/build',
+  manifest: './assets/build/rev-manifest.json',
 };
 
 // Check environment (fallback for gulp-mode)
 const isLocal = process.env.NODE_ENV === 'local';
 
+let manifestData = {};
+const collectManifest = () =>
+  rev.manifest().on('data', file => {
+    const json = JSON.parse(file.contents.toString());
+    manifestData = { ...manifestData, ...json };
+  });
+
+const withErrorHandler = (type) =>
+  plumber({ errorHandler: notify.onError(`${type} エラー: <%= error.message %>`) });
+
 // Compile SCSS
 const compileSass = () =>
   src(paths.scss)
     /* local環境ではerrorでも監視を停止しない */
-    .pipe(isLocal ? plumber({ errorHandler: notify.onError("SCSS エラー: <%= error.message %>") }) : plumber())
+    .pipe(isLocal ? withErrorHandler('SCSS') : plumber())
     .pipe(header(`$assets_url: '${assetsURL}';\n`))
     .pipe(sass({ outputStyle: 'compressed' }))
     /* 文字コード指定重複回避 */
@@ -49,23 +58,27 @@ const compileSass = () =>
     .pipe(rev())
     /* cssフォルダーにポイ */
     .pipe(dest(`${paths.build}`))
-    .pipe(rev.manifest('rev-manifest.json', { merge: true }))   
-    .pipe(dest(paths.build))
+    .pipe(collectManifest());
 
 // Minify JS
 const minifyJs = () =>
   src(paths.jsOrigin)
-    .pipe(plumber({ errorHandler: notify.onError("JS エラー: <%= error.message %>") }))
+    .pipe(withErrorHandler('JS'))
     .pipe(terser())
     .pipe(rev())   
     .pipe(dest(`${paths.build}`))
-    .pipe(rev.manifest('rev-manifest.json', { merge: true }))              
-    .pipe(dest(paths.build))
+    .pipe(collectManifest());
+
+// Merge manifest data
+const writeManifest = cb => {
+  fs.writeFileSync(paths.manifest, JSON.stringify(manifestData, null, 2));
+  cb();
+};
 
 // Clean up old files in build directory
 const cleanOldBuild = () =>
   src(`${paths.build}/**/*`, { read: false })
-    .pipe(revDistClean(`${paths.build}/rev-manifest.json`));
+    .pipe(revDistClean(paths.manifest));
 
 // Watchers
 const watchSass = () => watch(paths.scss, { delay: 500 }, compileSass);
@@ -73,4 +86,4 @@ const watchJs = () => watch(paths.jsOrigin, { delay: 500 }, minifyJs);
 
 // Tasks
 export default parallel(watchSass, watchJs);
-export const assetCompile = series(parallel(compileSass, minifyJs), cleanOldBuild);
+export const assetCompile = series(parallel(compileSass, minifyJs), writeManifest, cleanOldBuild);
