@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "gulp-rev": "^11.0.0",
+    "gulp-rev-dist-clean": "^3.2.3"
+  }
+}

@@ -22,7 +22,7 @@
     else : ?>
         <p><?php esc_html_e( 'Sorry, no posts matched your criteria.' ); ?></p>
     <?php endif; ?>
-
+    <script src="<?php echo get_hashed_asset_url('demo.js'); ?>"></script>
 </main>
 
 <?php get_footer(); ?>

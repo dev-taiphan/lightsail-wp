@@ -1,4 +1,5 @@
 import gulp from 'gulp';
+import fs from 'fs';
 const { src, dest, watch, parallel, series } = gulp;
 
 import * as sassCompiler from 'sass';
@@ -10,6 +11,8 @@ import notify from 'gulp-notify';
 import autoprefixer from 'gulp-autoprefixer';
 import terser from 'gulp-terser';
 import dotenv from 'dotenv';
+import rev from 'gulp-rev';
+import revDistClean from 'gulp-rev-dist-clean'
 
 dotenv.config({ path: '../../../../.env' });
 
@@ -23,7 +26,8 @@ const paths = {
   scss: './assets/scss/**/*.scss',
   jsOrigin: './assets/js_origin/**/*.js',
   jsDest: './assets/js',
-  cssDest: './assets/css'
+  cssDest: './assets/css',
+  build: './assets/build',
 };
 
 // Check environment (fallback for gulp-mode)
@@ -42,15 +46,26 @@ const compileSass = () =>
     .pipe(header('@charset "UTF-8";\n'))
     /* プレフィックスつけ、 */
     .pipe(autoprefixer({ cascade: false }))   
+    .pipe(rev())
     /* cssフォルダーにポイ */
-    .pipe(dest(paths.cssDest));
+    .pipe(dest(`${paths.build}`))
+    .pipe(rev.manifest('rev-manifest.json', { merge: true }))   
+    .pipe(dest(paths.build))
 
 // Minify JS
 const minifyJs = () =>
   src(paths.jsOrigin)
     .pipe(plumber({ errorHandler: notify.onError("JS エラー: <%= error.message %>") }))
     .pipe(terser())
-    .pipe(dest(paths.jsDest));
+    .pipe(rev())   
+    .pipe(dest(`${paths.build}`))
+    .pipe(rev.manifest('rev-manifest.json', { merge: true }))              
+    .pipe(dest(paths.build))
+
+// Clean up old files in build directory
+const cleanOldBuild = () =>
+  src(`${paths.build}/**/*`, { read: false })
+    .pipe(revDistClean(`${paths.build}/rev-manifest.json`));
 
 // Watchers
 const watchSass = () => watch(paths.scss, { delay: 500 }, compileSass);
@@ -58,4 +73,4 @@ const watchJs = () => watch(paths.jsOrigin, { delay: 500 }, minifyJs);
 
 // Tasks
 export default parallel(watchSass, watchJs);
-export const assetCompile = series(compileSass, minifyJs);
+export const assetCompile = series(parallel(compileSass, minifyJs), cleanOldBuild);

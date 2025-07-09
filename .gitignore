@@ -10,6 +10,7 @@ web/app/uploads/*
 web/app/languages/*
 !web/app/languages/.gitkeep
 web/app/cache/*
+web/app/themes/awesome/assets/build
 
 # WordPress
 web/wp
@@ -32,6 +33,7 @@ wp-cli.local.yml
 
 # Npm
 /web/app/themes/awesome/node_modules
+node_modules
 
 *-min.js
 *.min.js
