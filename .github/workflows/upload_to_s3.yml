@@ -53,8 +53,8 @@ jobs:
 
       - name: Build CSS & JS Assets
         run: |
-          npm install
           cd web/app/themes/awesome
+          npm install
           
           if [ "${{ inputs.deployment_target }}" = "prd" ]; then
             npm run compile:assets:prd
