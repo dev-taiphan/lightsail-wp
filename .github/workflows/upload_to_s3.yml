@@ -27,9 +27,7 @@ jobs:
     environment:
       name: ${{ inputs.deployment_target }}
     env:
-      APP_NAME: awesome
-      LCS_SERVICE: awesome-${{ inputs.deployment_target }}
-      LCS_CONTAINER: awesome-wp
+      BUCKET_NAME: awesome
       AWS_REGION: ap-southeast-1
       
     steps:
@@ -70,6 +68,4 @@ jobs:
 
       - name: Upload to S3
         run: |
-          echo "Current working directory: $(pwd)"
-          ls -al
-          aws s3 sync ./web/app/themes/awesome/assets/build s3://zenlunaris/${{ env.APP_NAME }}/${{ inputs.deployment_target }} --delete
+          aws s3 sync ./web/app/themes/awesome/assets/build s3://${{ env.BUCKET_NAME }}/ --delete

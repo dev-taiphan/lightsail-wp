@@ -1,0 +1,45 @@
+name: Clear CloudFront cache
+run-name: Clear CloudFront cache by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      sync_target:
+        description: 'target'
+        required: true
+        default: 'dev1'
+        type: choice
+        options:
+          - dev1
+          - dev2
+          - prd
+      invalidation_path:
+        description: 'path'
+        required: true
+        default: '/assets/*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clear_cache:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # OIDCトークンの権限を許可
+      contents: read
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.sync_target }}
+    steps:
+    - name: AWS Set Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+        aws-region: ap-northeast-1
+
+    - name: Invalidate CloudFront Cache
+      run: |
+        aws cloudfront create-invalidation \
+          --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+          --paths ${{ inputs.invalidation_path }}
