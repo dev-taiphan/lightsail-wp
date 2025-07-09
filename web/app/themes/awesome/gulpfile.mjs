@@ -1,5 +1,6 @@
 import gulp from 'gulp';
 import fs from 'fs';
+import path from 'path';
 const { src, dest, watch, parallel, series } = gulp;
 
 import * as sassCompiler from 'sass';
@@ -33,11 +34,15 @@ const paths = {
 const isLocal = process.env.NODE_ENV === 'local';
 
 let manifestData = {};
-const collectManifest = () =>
-  rev.manifest().on('data', file => {
+const collectManifest = (type) => {
+  return rev.manifest().on('data', (file) => {
     const json = JSON.parse(file.contents.toString());
-    manifestData = { ...manifestData, ...json };
+    Object.keys(json).forEach((key) => {
+      const value = json[key];
+      manifestData[`${type}/${key}`] = `${type}/${value}`;
+    });
   });
+};
 
 const withErrorHandler = (type) =>
   plumber({ errorHandler: notify.onError(`${type} エラー: <%= error.message %>`) });
@@ -57,8 +62,8 @@ const compileSass = () =>
     .pipe(autoprefixer({ cascade: false }))   
     .pipe(rev())
     /* cssフォルダーにポイ */
-    .pipe(dest(`${paths.build}`))
-    .pipe(collectManifest());
+    .pipe(dest(`${paths.build}/css`))
+    .pipe(collectManifest('css'));
 
 // Minify JS
 const minifyJs = () =>
@@ -66,19 +71,53 @@ const minifyJs = () =>
     .pipe(withErrorHandler('JS'))
     .pipe(terser())
     .pipe(rev())   
-    .pipe(dest(`${paths.build}`))
-    .pipe(collectManifest());
+    .pipe(dest(`${paths.build}/js`))
+    .pipe(collectManifest('js'));
 
 // Merge manifest data
-const writeManifest = cb => {
+const writeManifest = (callback) => {
   fs.writeFileSync(paths.manifest, JSON.stringify(manifestData, null, 2));
-  cb();
+  callback();
 };
 
 // Clean up old files in build directory
-const cleanOldBuild = () =>
-  src(`${paths.build}/**/*`, { read: false })
-    .pipe(revDistClean(paths.manifest));
+async function deleteEmptyDirs(dir) {
+  try {
+    const files = await fs.promises.readdir(dir);
+    await Promise.all(files.map(async (file) => {
+      const fullPath = path.join(dir, file);
+      const stat = await fs.promises.stat(fullPath);
+      if (stat.isDirectory()) {
+        await deleteEmptyDirs(fullPath);
+      }
+    }));
+    const remaining = await fs.promises.readdir(dir);
+    if (remaining.length === 0) {
+      await fs.promises.rmdir(dir); 
+    }
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+}
+
+const cleanOldBuild = () => {
+  return new Promise((resolve, reject) => {
+    const stream = src(`${paths.build}/**/*`, { read: false })
+      .pipe(revDistClean(paths.manifest))
+      .on('error', reject)
+      .on('finish', async () => {
+        try {
+          setTimeout(async () => {
+            await deleteEmptyDirs(paths.build);
+            resolve();
+          }, 100); 
+        } catch (err) {
+          reject(err);
+        }
+      });
+  });
+};
+
 
 // Watchers
 const watchSass = () => watch(paths.scss, { delay: 500 }, compileSass);
