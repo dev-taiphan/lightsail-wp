@@ -82,7 +82,7 @@ jobs:
           while read -r full_key value; do
             key=$(basename "$full_key")   
 
-            if [[ "$key" == BASIC_* ]]; then       
+            if [[ "$key" == BASIC_* || "$key" == ASSETS_* ]]; then       
               # Export to environment
               echo "$key=$value" >> $GITHUB_ENV
             fi
@@ -110,6 +110,7 @@ jobs:
             --build-arg ENV=${{ inputs.deployment_target }} \
             --build-arg FQDN=${{ vars.DOMAIN }} \
             --build-arg BASIC_AUTH_USER=$BASIC_AUTH_USER \
+            --build-arg 
             --build-arg BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD \
             -t $IMAGE_URI .
           docker push $IMAGE_URI
