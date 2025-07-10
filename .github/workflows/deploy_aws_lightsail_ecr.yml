@@ -135,5 +135,5 @@ jobs:
         run: |
           aws lightsail create-container-service-deployment \
             --service-name ${{ env.LCS_SERVICE }} \
-            --cli-input-json file://container.json
+            --cli-input-json file://container.json > /dev/null
 
