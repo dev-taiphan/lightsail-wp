@@ -1,5 +1,5 @@
 data "aws_ssm_parameters_by_path" "all" {
-  path            = "/${var.app_name}/${var.env}/"
+  path            = "/${var.service_name}/${var.env}/"
   recursive       = true
   with_decryption = true
 }
@@ -17,7 +17,7 @@ locals {
     "BASIC_AUTH_PASSWORD"
   ]
 
-  secrets_map = {
+  environment = {
     for key, param in data.aws_ssm_parameter.each_param :
     basename(key) => param.value
     if !(contains(local.skip_keys, basename(key)))
@@ -27,24 +27,24 @@ locals {
 locals {
   container_json = jsonencode({
     containers = {
-      (var.lcs_container_name) = {
+      ("${var.service_name}-wp") = {
         image = "REPLACE_ECR_IMAGE"
         ports = {
           "80" = "HTTP"
         }
-        environment = local.secrets_map
+        environment = local.environment
       }
     }
     publicEndpoint = {
-      containerName = var.lcs_container_name
+      containerName = "${var.service_name}-wp"
       containerPort = 80
     }
   })
 }
 
 resource "aws_ssm_parameter" "container_definition" {
-  name  = "/${var.app_name}/${var.env}/CONTAINER_DEFINITION"
-  type  = "String"
+  name  = "/${var.service_name}/${var.env}/CONTAINER_DEFINITION"
+  type  = "SecureString"
   value = local.container_json
   overwrite = true
 }
