@@ -110,7 +110,7 @@ jobs:
             --build-arg ENV=${{ inputs.deployment_target }} \
             --build-arg FQDN=${{ vars.DOMAIN }} \
             --build-arg BASIC_AUTH_USER=$BASIC_AUTH_USER \
-            --build-arg 
+            --build-arg ASSETS_URL=$ASSETS_URL \
             --build-arg BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD \
             -t $IMAGE_URI .
           docker push $IMAGE_URI
