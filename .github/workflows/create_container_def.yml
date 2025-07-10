@@ -27,8 +27,6 @@ jobs:
       name: ${{ inputs.deployment_target }}
     env:
       APP_NAME: awesome
-      LCS_SERVICE: awesome-${{ inputs.deployment_target }}
-      LCS_CONTAINER: awesome-wp
       AWS_REGION: ap-southeast-1
     
     steps:
@@ -70,8 +68,7 @@ jobs:
         working-directory: lightsail/lcs
         run: |
           terraform plan \
-            -var="app_name=${{ env.APP_NAME }}" \
-            -var="lcs_container_name=${{ env.LCS_CONTAINER }}" \
+            -var="service_name=${{ env.APP_NAME }}" \
             -var="env=${{ inputs.deployment_target }}" \
             -out=tfplan
 
