@@ -2,11 +2,12 @@
 FROM node:23 AS assets-build
 
 ARG ENV=dev1
+ARG ASSETS_URL
 
 WORKDIR /var/www/html
 
 # Copy the .env file 
-COPY .env.deploy /var/www/html/.env
+COPY .env.deploy ./.env
 
 # Copy package.json and package-lock.json to prepare for npm install
 COPY ./web/app/themes/awesome/package*.json ./web/app/themes/awesome/
@@ -54,7 +55,7 @@ RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli
 WORKDIR /var/www/html
 
 # Copy the .env file again for the application
-COPY .env.deploy /var/www/html/.env
+COPY .env.deploy ./.env
 
 # Copy the entire application source code
 COPY . .
