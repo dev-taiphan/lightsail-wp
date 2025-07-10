@@ -1,4 +1,4 @@
-name: Create LCS Definition
+name: Create SSM Variables
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
 
 on:
