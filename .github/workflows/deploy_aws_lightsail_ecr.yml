@@ -11,7 +11,7 @@ on:
         type: choice
         options:
           - dev1
-          - prd
+          - demo
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
