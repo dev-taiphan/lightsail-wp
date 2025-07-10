@@ -76,7 +76,3 @@ jobs:
       - name: Terraform Apply
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: terraform apply -auto-approve tfplan
-
-      - name: Show Outputs
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: terraform output -json
