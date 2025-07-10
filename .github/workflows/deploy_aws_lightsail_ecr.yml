@@ -12,7 +12,6 @@ on:
         options:
           - dev1
           - prd
-          - demo
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -80,6 +79,7 @@ jobs:
             --output text)
           
           while read -r full_key value; do
+
             key=$(basename "$full_key")   
 
             if [[ "$key" == BASIC_* || "$key" == ASSETS_* ]]; then       
@@ -90,6 +90,10 @@ jobs:
             # Mask sensitive values
             if [[ "$key" =~ PASSWORD|PASS|KEY|USER|HOST|AUTH|SALT ]]; then
               echo "::add-mask::$value"
+            fi
+
+            if [[ "$key" == "CONTAINER_DEFINITION" ]]; then
+              echo "$value" > ssm_container.json
             fi
           done <<< "$PARAMS"
             
@@ -109,21 +113,13 @@ jobs:
           docker build \
             --build-arg ENV=${{ inputs.deployment_target }} \
             --build-arg FQDN=${{ vars.DOMAIN }} \
-            --build-arg BASIC_AUTH_USER=$BASIC_AUTH_USER \
             --build-arg ASSETS_URL=$ASSETS_URL \
+            --build-arg BASIC_AUTH_USER=$BASIC_AUTH_USER \
             --build-arg BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD \
             -t $IMAGE_URI .
           docker push $IMAGE_URI
           echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
-
-      - name: Retrieve container definition
-        run: |
-          aws ssm get-parameter \
-            --name "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/CONTAINER_DEFINITION" \
-            --with-decryption \
-            --query "Parameter.Value" \
-            --output text > ssm_container.json
 
       - name: Replace ECR image for container json
         run: |
@@ -135,5 +131,4 @@ jobs:
         run: |
           aws lightsail create-container-service-deployment \
             --service-name ${{ env.LCS_SERVICE }} \
-            --cli-input-json file://container.json > /dev/null
-
+            --cli-input-json file://container.json
