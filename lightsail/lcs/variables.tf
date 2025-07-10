@@ -1,11 +1,9 @@
-variable "app_name" {
-  description = "Name of the website"
-}
-
-variable "lcs_container_name" {
-  description = "Name of the container in Lightsail"
-}
-
 variable "env" {
-  description = "Deployment environment (dev1, prd, etc.)"
+  type        = string
+  description = "The deployment environment (e.g., dev1, dev2, prd)"
+}
+
+variable "service_name" {
+  type        = string
+  description = "The name of the service being deployed"
 }
