@@ -117,6 +117,8 @@ jobs:
           echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
 
       - name: Build CSS & JS Assets
+        env:
+          ASSETS_URL: ${{ env.ASSETS_URL }}
         run: |
           cd web/app/themes/${{ env.APP_NAME }}
           npm install
