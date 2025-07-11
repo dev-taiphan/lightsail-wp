@@ -12,6 +12,16 @@ on:
         options:
           - dev1
           - demo
+      build_image:
+        description: 'Allow build docker image'
+        required: true
+        default: true
+        type: boolean
+      upload_assets:
+        description: 'Allow upload assets to S3'
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -105,8 +115,20 @@ jobs:
 
           echo "::add-mask::$BASIC_AUTH_HASH"
           echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
+
+      - name: Build CSS & JS Assets
+        run: |
+          cd web/app/themes/${{ env.APP_NAME }}
+          npm install
+          
+          if [ "${{ inputs.deployment_target }}" = "prd" ]; then
+            npm run compile:assets:prd
+          else
+            npm run compile:assets:dev
+          fi
           
       - name: Build Docker Image
+        if: ${{ inputs.build_image }}
         id: build-image
         run: |
           IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_SERVICE }}:${{ env.IMAGE_TAG }}"
@@ -128,7 +150,24 @@ jobs:
           cat container.json
           
       - name: Deploy to Lightsail Container Service
+        if: ${{ inputs.build_image }}
         run: |
           aws lightsail create-container-service-deployment \
             --service-name ${{ env.LCS_SERVICE }} \
             --cli-input-json file://container.json > /dev/null
+
+      - name: Upload assets to S3
+        if: ${{ inputs.upload_assets }}
+        run: |
+          aws s3 sync ./web/app/themes/${{ env.APP_NAME }}/assets/build s3://${{ vars.S3_BUCKET_NAME }}/assets/ --acl public-read --delete
+
+      - name: Remove empty folders from S3
+        if:  ${{ inputs.upload_assets }}
+        run: |
+          EMPTY_FOLDERS=$(aws s3api list-objects-v2 \
+            --bucket ${{ vars.S3_BUCKET_NAME }} \
+            --query "Contents[?ends_with(Key, '/')].Key" --output text)
+          
+          for key in $EMPTY_FOLDERS; do
+            aws s3 rm s3://${{ vars.S3_BUCKET_NAME }}/$key
+          done
