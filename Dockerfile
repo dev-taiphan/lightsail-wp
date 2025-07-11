@@ -1,32 +1,3 @@
-# Step 1: Build frontend assets using Node.js
-FROM node:23 AS assets-build
-
-ARG ENV=dev1
-ARG ASSETS_URL
-
-WORKDIR /var/www/html
-
-# Copy the .env file 
-COPY .env.deploy ./.env
-
-# Copy package.json and package-lock.json to prepare for npm install
-COPY ./web/app/themes/awesome/package*.json ./web/app/themes/awesome/
-
-# Copy assets directory
-COPY ./web/app/themes/awesome/assets ./web/app/themes/awesome/assets
-
-# Copy the gulpfile.mjs for asset compilation
-COPY ./web/app/themes/awesome/gulpfile.mjs ./web/app/themes/awesome/gulpfile.mjs 
-
-# Install dependencies and compile production assets
-RUN cd ./web/app/themes/awesome && npm install && \
-    if [ "$ENV" = "prd" ]; then \
-      npm run compile:assets:prd; \
-    else \
-      npm run compile:assets:dev; \
-    fi
-
-# Step 2: Build the main PHP image
 FROM php:8.3.19-fpm
 
 # Install necessary packages including MySQL client, nginx, and PHP extensions
@@ -37,6 +8,9 @@ RUN apt-get update && apt-get install -y \
     gettext-base \
     curl \
     gnupg2 \
+    redis-tools \
+  && pecl install redis \
+  && docker-php-ext-enable redis \
   && docker-php-ext-install -j$(nproc) mysqli pdo_mysql \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -66,7 +40,7 @@ RUN mkdir -p /var/www/html/web/app/uploads \
   && chmod -R 755 /var/www/html/web/app/uploads
 
 # Overwrite the assets folder with the production build from the previous stage
-COPY --from=assets-build /var/www/html/web/app/themes/awesome/assets /var/www/html/web/app/themes/awesome/assets
+COPY ./web/app/themes/awesome/assets ./web/app/themes/awesome/assets
 
 # Copy Nginx configuration template and use envsubst to insert FQDN
 ARG FQDN=dev1.awe-some.best

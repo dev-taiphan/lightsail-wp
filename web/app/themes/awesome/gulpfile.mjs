@@ -22,8 +22,6 @@ const sass = gulpSass(sassCompiler);
 // ENV variables
 const assetsURL = process.env.ASSETS_URL || '';
 
-console.log("process.env.ASSETS_URL:", assetsURL);
-
 // Paths
 const paths = {
   scss: './assets/scss/**/*.scss',
