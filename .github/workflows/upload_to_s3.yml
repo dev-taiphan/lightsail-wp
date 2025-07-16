@@ -1,4 +1,4 @@
-name: Deploy to Lightsail Container Service
+name: Deploy FULL STEP
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
 
 on:
@@ -7,10 +7,10 @@ on:
       deployment_target:
         description: 'Deployment target'
         required: true
-        default: 'dev1'
+        default: 'demo'
         type: choice
         options:
-          - dev1
+          - demo
           - prd
       upload_assets:
         description: 'Upload assets to S3 Service'
