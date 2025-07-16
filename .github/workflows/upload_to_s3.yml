@@ -1,4 +1,4 @@
-name: Upload CSS/JS to S3
+name: Deploy to Lightsail Container Service
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
 
 on:
@@ -12,6 +12,11 @@ on:
         options:
           - dev1
           - prd
+      upload_assets:
+        description: 'Upload assets to S3 Service'
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,7 +32,10 @@ jobs:
     environment:
       name: ${{ inputs.deployment_target }}
     env:
-      AWS_REGION: ap-southeast-1
+      APP_NAME: awesome
+      LCS_SERVICE: awesome-${{ inputs.deployment_target }}
+      LCS_CONTAINER: awesome-wp
+      AWS_REGION: ap-northeast-1
       
     steps:
       - name: Checkout
@@ -47,10 +55,67 @@ jobs:
           IMAGE_TAG="${{ steps.create-tag-name.outputs.tag_name }}-${{ github.run_number }}"
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
           echo "ENVIRONMENT=$(echo ${{ inputs.deployment_target }} | tr '[:lower:]' '[:upper:]')" >> $GITHUB_ENV
-
-      - name: Build CSS & JS Assets
+      
+      - name: Install Lightsail CLI Plugin
         run: |
-          cd web/app/themes/awesome
+          sudo curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
+          sudo chmod +x /usr/local/bin/lightsailctl
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: true
+      
+      - name: Retrieve secrets from SSM Parameter Store
+        id: get-ssm-secrets
+        run: |
+          # Fetch all parameters under the path
+          PARAMS=$(aws ssm get-parameters-by-path \
+            --path "/${{ env.APP_NAME }}/${{ inputs.deployment_target }}/" \
+            --with-decryption \
+            --query "Parameters[].{Key:Name,Val:Value}" \
+            --output text)
+          
+          while read -r full_key value; do
+
+            key=$(basename "$full_key")   
+
+            if [[ "$key" == BASIC_* || "$key" == PUBLIC_* ]]; then       
+              # Export to environment
+              echo "$key=$value" >> $GITHUB_ENV
+            fi
+
+            # Mask sensitive values
+            if [[ "$key" =~ (PASSWORD|PASS|KEY|USER|HOST|AUTH|SALT) ]]; then
+              echo "::add-mask::$value"
+            fi
+
+            if [[ "$key" == "CONTAINER_DEFINITION" ]]; then
+              echo "$value" > ssm_container.json
+            fi
+          done <<< "$PARAMS"
+            
+      - name: Generate htpasswd hash 
+        id: htpasswd-hash
+        run: |
+          AUTH_LINE=$(htpasswd -nb "$BASIC_AUTH_USER" "$BASIC_AUTH_PASSWORD")
+          BASIC_AUTH_HASH="${AUTH_LINE#*:}"
+
+          echo "::add-mask::$BASIC_AUTH_HASH"
+          echo "BASIC_AUTH_PASSWORD=$BASIC_AUTH_HASH" >> $GITHUB_ENV
+      
+      - name: Build CSS & JS Assets
+        env:
+          ASSETS_URL: ${{ env.PUBLIC_ASSETS_URL }}
+        run: |
+          cd web/app/themes/${{ env.APP_NAME }}
           npm install
           
           if [ "${{ inputs.deployment_target }}" = "prd" ]; then
@@ -58,16 +123,35 @@ jobs:
           else
             npm run compile:assets:dev
           fi
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Upload to S3
+          
+      - name: Build Docker Image
+        id: build-image
         run: |
-          aws s3 sync ./web/app/themes/awesome/assets/build s3://${{ vars.S3_BUCKET_NAME }}/assets/ \
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_SERVICE }}:${{ env.IMAGE_TAG }}"
+          docker build \
+            --build-arg ENV=${{ inputs.deployment_target }} \
+            --build-arg FQDN=$PUBLIC_DOMAIN \
+            --build-arg ASSETS_URL=$PUBLIC_ASSETS_URL \
+            --build-arg BASIC_AUTH_USER=$BASIC_AUTH_USER \
+            --build-arg BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD \
+            -t $IMAGE_URI .
+          docker push $IMAGE_URI
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+
+      - name: Replace ECR image for container json
+        run: |
+          sed "s|REPLACE_ECR_IMAGE|${{ steps.build-image.outputs.image }}|g" ssm_container.json > container.json
+          
+      - name: Deploy to Lightsail Container Service
+        run: |
+          aws lightsail create-container-service-deployment \
+            --service-name ${{ env.LCS_SERVICE }} \
+            --cli-input-json file://container.json > /dev/null
+
+      - name: Upload assets to S3
+        run: |
+          aws s3 sync ./web/app/themes/awesome/assets/build s3://${{ env.PUBLIC_S3_BUCKET_NAME }}/assets/ \
             --delete \
             --exclude "*" \
             --include "css/*" \
