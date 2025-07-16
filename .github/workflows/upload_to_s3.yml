@@ -1,4 +1,4 @@
-name: Deploy FULL STEP
+name: Deploy full
 run-name: Deploy ${{ github.ref_name }} to ${{ inputs.deployment_target }} by @${{ github.actor }}
 
 on:
@@ -150,9 +150,26 @@ jobs:
             --cli-input-json file://container.json > /dev/null
 
       - name: Upload assets to S3
+        if: ${{ inputs.upload_assets }}
         run: |
           aws s3 sync ./web/app/themes/awesome/assets/build s3://${{ env.PUBLIC_S3_BUCKET_NAME }}/assets/ \
             --delete \
             --exclude "*" \
             --include "css/*" \
-            --include "js/*" 
+            --include "js/*" \
+
+      - name: Remove empty folders in css/ and js/
+        if: ${{ inputs.upload_assets }}
+        run: |
+          for prefix in css/ js/; do
+            EMPTY_KEYS=$(aws s3api list-objects-v2 \
+              --bucket ${{ env.PUBLIC_S3_BUCKET_NAME }} \
+              --prefix assets/${prefix} \
+              --query "Contents[?ends_with(Key, '/')].Key" \
+              --output text)
+
+            for key in $EMPTY_KEYS; do
+              echo "Deleting empty folder: $key"
+              aws s3 rm s3://${{ env.PUBLIC_S3_BUCKET_NAME }}/$key
+            done
+          done
