@@ -12,6 +12,11 @@ on:
         options:
           - demo
           - prd
+      build_image:
+        description: 'Build docker'
+        required: true
+        default: false
+        type: boolean
       upload_assets:
         description: 'Upload assets to S3 Service'
         required: true
@@ -125,6 +130,7 @@ jobs:
           fi
           
       - name: Build Docker Image
+        if: ${{ inputs.build_image }}
         id: build-image
         run: |
           IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.LCS_SERVICE }}:${{ env.IMAGE_TAG }}"
@@ -140,10 +146,12 @@ jobs:
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
 
       - name: Replace ECR image for container json
+        if: ${{ inputs.build_image }}
         run: |
           sed "s|REPLACE_ECR_IMAGE|${{ steps.build-image.outputs.image }}|g" ssm_container.json > container.json
           
       - name: Deploy to Lightsail Container Service
+        if: ${{ inputs.build_image }}
         run: |
           aws lightsail create-container-service-deployment \
             --service-name ${{ env.LCS_SERVICE }} \
