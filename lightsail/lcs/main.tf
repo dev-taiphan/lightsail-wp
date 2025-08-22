@@ -27,6 +27,15 @@ locals {
 locals {
   container_json = jsonencode({
     containers = {
+      "awesome-datadog": {
+        image = "public.ecr.aws/datadog/agent:latest",
+        "environment": {
+            "DD_API_KEY": "543a7cd5007ce0e88524904f875b99d4",
+            "DD_SITE": "ap1.datadoghq.com",
+            "DD_LOGS_ENABLED": "true",
+            "DD_APM_ENABLED": "true"
+        }
+      }
       ("${var.service_name}-wp") = {
         image = "REPLACE_ECR_IMAGE"
         ports = {
